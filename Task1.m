@@ -1,11 +1,11 @@
 %% Problema 1
-
+clear;
 load model_data_clean.mat
 support_node_list = case_control_sets.subcase_0_SET_2;
 
 % Definim la matriu de fixnodes i calculem l'array d'index de Dirichlet
 fixnodes = zeros(3*length(support_node_list),3);
-inD = zeros(length(fixnodes),1);
+iD = zeros(length(fixnodes),1);
 i = 1;
 
 for inode = 1:length(support_node_list)
@@ -15,7 +15,7 @@ for inode = 1:length(support_node_list)
             support_node_list(inode),dof,0
             ]; 
         % Array of Dirichlet dofs
-        inD(i) = dof + (fixnodes(index,1)-1)*3;
+        iD(i) = dof + (fixnodes(index,1)-1)*3;
         i = i+1;
     end
 end
@@ -27,10 +27,25 @@ uD = fixnodes(:,3);
 iT = 1:length(node_coords)*3;
 iT = iT';
 
+iN = setdiff(iT, iD);
 
 
+% Vector de forces global
+Nnodes = length(node_coords);
+Ndof = 3*Nnodes;
+gVec = repmat([0;0;-9.81], Nnodes, 1); % Vector de gravetat
+mVec = zeros(Ndof,1);
 
+for i = 1:Nnodes
+    for j = 1:3
+        idx = (i-1)*6 + 1;
+        mVec(3*(i-1)+j) = MAAX(idx,idx);
+    end
+end
 
+FT = gVec.*mVec;
 
+% Vector de forces dels nodes amb condició de Neumann
+FN = FT(iN);
 
-
+FDext = FT(iD);
