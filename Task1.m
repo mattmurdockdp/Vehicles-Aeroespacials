@@ -20,6 +20,16 @@ for inode = 1:length(support_node_list)
     end
 end
 
+% Dirichlet displacements
+uD = fixnodes(:,3);
+
+% Array d'index de Neumann
+iT = 1:length(node_coords)*3;
+iT = iT';
+
+
+
+
 
 
 
