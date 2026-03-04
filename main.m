@@ -1,0 +1,25 @@
+% Hola Matt! No m'he tornat boig hahaha
+% No ho he fet tot de nou, he aprofitat les idees de la sessió passada i ho
+% he refet perquè ens quedi tot més ordenat. Però son les mateixes idees.
+
+clear;
+load model_data_clean.mat
+% node_coords = [1,1,1;1,2,1;1,3,1;1,4,1;2,1,1;2,2,1;2,3,1;2,4,1]; % Test
+
+% Struct de mides 'n'
+n.nodes = length(node_coords);  % Nombre total de nodes
+n.dims  = 6;                    % Nombre de DOF per cada node (o dimensions)
+n.dof   = n.dims*n.nodes;       % Nombde total de DOF
+
+% % Proves
+% A = (1:3)';
+% B = node2DOF(A, n);
+
+%% Problema 1: càlcul estructural estàtic considerant només els 3 suports fixes
+
+% Indexadors dels nodes de les diferents condicions de contorn
+[inD, ...   %   Dirichlet
+ inN] ...   %   Neumann
+= findBCIndicies(case_control_sets.subcase_0_SET_2, n);
+
+% Resolució del sistema
