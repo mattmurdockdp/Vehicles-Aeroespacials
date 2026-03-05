@@ -49,3 +49,15 @@ FT = gVec.*mVec;
 FN = FT(iN);
 
 FDext = FT(iD);
+
+% Sistema d'equacions
+uD  = zeros(length(iD),1);
+KNN = KAAX(iN,iN);
+KND = KAAX(iN,iD);
+KDD = KAAX(iD,iD);
+KDN = KAAX(iD,iN);
+uN  = KNN\(FN-KND*uD);  
+FD  = KDD*uD+KDN*uN;
+
+% Reaccions 
+rF = FD-FDext;
