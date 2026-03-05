@@ -4,6 +4,10 @@ close all;
 clear;
 load model_data_clean.mat
 
+% Constants
+g = 9.81*1e3;               % [mm/s^2]
+radi = 75;                  % [mm]
+
 % Struct de mides 'n'
 n.nodes = length(node_coords);  % Nombre total de nodes
 n.dims  = 6;                    % Nombre de DOF per cada node 
@@ -12,12 +16,14 @@ n.dof   = n.dims*n.nodes;       % Nombde total de DOF
 %% Problema 1: càlcul estructural estàtic considerant només els 3 suports fixes
 
 % Indexadors dels nodes de les diferents condicions de contorn
+nod2Restrict = 1:3;
+
 [inD, ...   %   Dirichlet
  inN] ...   %   Neumann
-= findBCIndicies(case_control_sets.subcase_0_SET_2, n);
+= findBCIndicies(case_control_sets.subcase_0_SET_2, n, nod2Restrict);
 
 % Forces
-g_node = [0;0;-9.81;0;0;0];
+g_node = [0;0;-g;0;0;0];
 gVec   = repmat(g_node,n.nodes,1);
 FT     = MAAX * gVec;
 
@@ -28,29 +34,46 @@ for i = 1:n.nodes
     m   = m + MAAX(idx,idx);
 end
 
-FN    = FT(inN);  % Vector de forces amb condicions de Neumann   
-FDext = FT(inD);  % Vector de forces externes per trobar les reaccions de Dirichlet
-
-% Sistema d'equacions
-uD  = zeros(length(inD),1);
-KNN = KAAX(inN,inN);
-KND = KAAX(inN,inD);
-KDD = KAAX(inD,inD);
-KDN = KAAX(inD,inN);
-uN  = KNN\(FN-KND*uD);  
-FD  = KDD*uD+KDN*uN;
-
-% Reaccions 
-rF = FD-FDext;
+[U, F, rF] = solveStatics(inD, inN, FT, KAAX, n);
 
 % Comparar reaccions amb el pes
-FGravity = m*9.81;
+FGravity = m*g;
 fprintf('\n---- Comparació de reaccions amb el pes ----\n');
 fprintf('Pes total (N):            %.6f\n', FGravity);
 fprintf('Pes/3 (per suport) (N):   %.6f\n\n', FGravity/3);
 
 fprintf('Reacció suport 1 (N):     %.6f\n', rF(3));
-fprintf('Reacció suport 2 (N):     %.6f\n', rF(9));
-fprintf('Reacció suport 3 (N):     %.6f\n', rF(15));
+fprintf('Reacció suport 2 (N):     %.6f\n', rF(6));
+fprintf('Reacció suport 3 (N):     %.6f\n', rF(9));
 
-fprintf('\nSuma reaccions (N):       %.6f\n', rF(3)+rF(9)+rF(15));
+fprintf('\nSuma reaccions (N):       %.6f\n', rF(3)+rF(6)+rF(9));
+
+%% Problema 2
+
+% Apartat a, desplaçament dels nodes segons el Polinomi de Zernike
+n.noll = 100;
+Z = zeros(n.nodes, n.noll);
+for j=1:n.noll              
+    [~, ~, ~, Z(:, j), ~] = zernike_noll(node_coords(:,1)/radi, node_coords(:,2)/radi, j);
+end
+
+% Apartat b, efecte aïllat de cadascun dels actuadors
+n.act = length(case_control_sets.subcase_0_SET_1);
+U = zeros(n.nodes, n.act);
+FT = zeros(n.dof, 1);
+
+for i = 1:n.act
+    actuatorDof = node2DOF(case_control_sets.subcase_0_SET_1(i), n, nod2Restrict);
+        % Nota: nod2Restrict aquí es pot utilitzar el que es vulgui, sempre
+        % i quan sigui robust amb el que s'indexa dins de FT aquí a sota
+    FT(actuatorDof(3)) = 1; % 1 N positiu en l'eix z
+
+    % idxZ = repmat([0; 0; 1; 0; 0; 0], n.nodes, 1);
+    [Uaux, F, rF] = solveStatics(inD, inN, FT, KAAX, n);
+
+    for j = 1:n.nodes   % Només es guarden les components Z dels desplaçaments
+        U(:,i) = Uaux(6*(i-1)+3);
+    end
+end
+
+% Apartat c, 
