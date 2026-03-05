@@ -8,6 +8,8 @@ function [inD, inN] = findBCIndicies(subset, n, nod2Restrict)
     %           Dirichlet
     %   n       [struct]            Struct de mides
     %
+    %   nod2Restrict                Array auxiliar dels DOFs que es volen restringir
+    %
     % Sortides:
     %   inD     [nDOF_D, 1] Índexs dels graus de llibertat amb condició de
     %           Dirichlet
@@ -16,8 +18,6 @@ function [inD, inN] = findBCIndicies(subset, n, nod2Restrict)
     %
     % Última modificació:
     %   05.03.2026
-    %
-    % Funció verificada!
 
     inD = node2DOF(subset,n,nod2Restrict);
     inT = 1:n.dof;

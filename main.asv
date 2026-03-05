@@ -34,20 +34,7 @@ for i = 1:n.nodes
     m   = m + MAAX(idx,idx);
 end
 
-FN    = FT(inN);  % Vector de forces amb condicions de Neumann   
-FDext = FT(inD);  % Vector de forces externes per trobar les reaccions de Dirichlet
-
-% Sistema d'equacions
-uD  = zeros(length(inD),1);
-KNN = KAAX(inN,inN);
-KND = KAAX(inN,inD);
-KDD = KAAX(inD,inD);
-KDN = KAAX(inD,inN);
-uN  = KNN\(FN-KND*uD);  
-FD  = KDD*uD+KDN*uN;
-
-% Reaccions 
-rF = FD-FDext;
+[U, F, rF] = solveStatics(inD, inN, FT, KAAX, n);
 
 % Comparar reaccions amb el pes
 FGravity = m*g;
@@ -66,7 +53,7 @@ fprintf('\nSuma reaccions (N):       %.6f\n', rF(3)+rF(6)+rF(9));
 % Apartat a, desplaçament dels nodes segons el Polinomi de Zernike
 n.noll = 100;
 Z = zeros(n.nodes, n.noll);
-for j=4:n.noll              % Es comença a 4 per saltar els modes de sòlid rígid
+for j=1:n.noll              
     [~, ~, ~, Z(:, j), ~] = zernike_noll(node_coords(:,1)/radi, node_coords(:,2)/radi, j);
 end
 
@@ -77,5 +64,30 @@ FT = zeros(n.dof, 1);
 
 for i = 1:n.act
     actuatorDof = node2DOF(case_control_sets.subcase_0_SET_1(i), n, nod2Restrict);
-    FT(actuatorDof(3))
+        % Nota: nod2Restrict aquí es pot utilitzar el que es vulgui, sempre
+        % i quan sigui robust amb el que s'indexa dins de FT aquí a sota
+    FT(actuatorDof(3)) = 1; % 1 N positiu en l'eix z
+
+    % idxZ = repmat([0; 0; 1; 0; 0; 0], n.nodes, 1);
+    [Uaux, F, rF] = solveStatics(inD, inN, FT, KAAX, n);
+
+    for j = 1:n.nodes   % Només es guarden les components Z dels desplaçaments
+        U(:,i) = Uaux(6*(i-1)+3);
+    end
 end
+
+% Apartat c, calcular la matriu d'influència
+
+C = zeros(n.noll,n.act);
+
+for i=1:n.act
+    W = U(:,i);
+    C(:,i) = (Z\W)*1000;
+end
+
+% Resultats per l'actuador 13 pels modes de 4 a 10
+fprintf('\n---- Coeficie ----\n');
+for k = 4:10
+    fprintf('Mode %d : %d µm/N\n',k,C(k,13));
+end
+

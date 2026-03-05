@@ -6,6 +6,7 @@ function DOFList = node2DOF(nodeList, n, nod2Restrict)
     % Arguments:
     %   nodeList    [nDOF_subset, 1]
     %   n           [struct]            Struct de mides, interessa n.dims
+    %   nod2Restrict                    Array auxiliar dels DOFs que es volen restringir
     %
     % Sortides:
     %   DOFList     [nDIMS*nDOF_subset, 1] = 
@@ -13,10 +14,7 @@ function DOFList = node2DOF(nodeList, n, nod2Restrict)
     %
     % Última modificació:
     %   05.03.2026
-    %
-    % Funció verificada!
 
-    % nodeList = (1:3)';
     m = length(nod2Restrict);
     DOFList = zeros(m*length(nodeList), 1);
 

@@ -76,4 +76,18 @@ for i = 1:n.act
     end
 end
 
-% Apartat c, 
+% Apartat c, calcular la matriu d'influència
+
+C = zeros(n.noll,n.act);
+
+for i=1:n.act
+    W = U(:,i);
+    C(:,i) = (Z\W)*1000;
+end
+
+% Resultats per l'actuador 13 pels modes de 4 a 10
+fprintf("\n---- Coeficients de la matriu d'influencia per l'actuador 13, dels modes 4 al 10----\n");
+for k = 4:10
+    fprintf('Mode %d : %d µm/N\n',k,C(k,13));
+end
+
