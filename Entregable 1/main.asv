@@ -124,16 +124,41 @@ for k = 13:17
 end
 fprintf("\n")
 
-% ii) Calculem l'error 
-
-Ureal   = U*f;
-Utarget = C_opt*Zc
-
+% ii) The total compensation residual RMS, rejecting the rigid body modes
 sigma_total = sqrt(sum((Zc(:)).^2));
 fprintf('Error total rms : %d N\n \n',sigma_total);
 
 % iii) Compensation residual captured by the 100 modes
-% Es el error que queda dentro del espacio de los modos de Zernike (4-100)
+
+% iv) High frequency (n>100) residual
+
+%% Problem 4 Compute the eigenfrequencies and eigenmodes of the model.
+
+% a) Unconstrained.
+[V_unconstrained, d_unconstrained] = eigs(KAAX, MAAX, 30, 'smallestabs');
+freq = sqrt(diag(d_unconstrained))/(2*pi);
+    % La freqüència surt en números complexos.
+    
+disp('-----------------------------');
+disp('M O D E S   P R O P I S');
+
+for i = 1:8
+    ratio = abs(freq(i+1)/freq(i));
+    fprintf('Ratio de freq. modes %d i %d: %d Hz \n', i+1, i, ratio);
+end
+% NOTA: revisar si el ràtio ha de ser gran o petit, de cara al report
 
 
+% b) Constrained.
 
+[V_constrained, d_constrained] = eigs(KAAX(inN,inN), MAAX(inN,inN), 30, 'smallestabs');
+freq = sqrt(diag(d_constrained))/(2*pi);
+    % La freqüència surt en números complexos.
+    
+disp('-----------------------------');
+disp('M O D E S   P R O P I S');
+
+for i = 1:8
+    ratio = abs(freq(i+1)/freq(i));
+    fprintf('Ratio de freq. modes %d i %d: %d Hz \n', i+1, i, ratio);
+end

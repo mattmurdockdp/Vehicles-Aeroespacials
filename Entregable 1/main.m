@@ -135,9 +135,30 @@ fprintf('Error total rms : %d N\n \n',sigma_total);
 %% Problem 4 Compute the eigenfrequencies and eigenmodes of the model.
 
 % a) Unconstrained.
+[V_u, d_u] = eigs(KAAX, MAAX, 30, 'smallestabs');
+freq_u = sqrt(diag(d_u))/(2*pi);
+    % La freqüència surt en números complexos.
+    
+disp('-----------------------------');
+disp('M O D E S   P R O P I S');
+disp(' No restringit');
+
+for i = 1:8
+    ratio = abs(freq_u(i+1)/freq_u(i));
+    fprintf('Ratio de freq. modes %d i %d: %d Hz \n', i+1, i, ratio);
+end
+% NOTA: revisar si el ràtio ha de ser gran o petit, de cara al report
 
 
 % b) Constrained.
+    % Seleccionem només els graus de llibertat de Neumann, és a dir, els no
+    % restringits.
+[V_c, d_c] = eigs(KAAX(inN,inN), MAAX(inN,inN), 30, 'smallestabs');
+freq_c = sqrt(diag(d_c))/(2*pi);
+    
+disp(' Suports com a nodes restringits');
 
-
-
+for i = 1:8
+    ratio = abs(freq_c(i+1)/freq_c(i));
+    fprintf('Ratio de freq. modes %d i %d: %d Hz \n', i+1, i, ratio);
+end
