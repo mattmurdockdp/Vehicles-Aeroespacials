@@ -124,11 +124,20 @@ for k = 13:17
 end
 fprintf("\n")
 
-% ii) Calculem l'error 
-sigma_total = sum(sqrt((Zc(:)).^2));
+% ii) The total compensation residual RMS, rejecting the rigid body modes
+sigma_total = sqrt(sum((Zc(:)).^2));
 fprintf('Error total rms : %d N\n \n',sigma_total);
 
+% iii) Compensation residual captured by the 100 modes
 
+% iv) High frequency (n>100) residual
+
+%% Problem 4 Compute the eigenfrequencies and eigenmodes of the model.
+
+% a) Unconstrained.
+
+
+% b) Constrained.
 
 
 
