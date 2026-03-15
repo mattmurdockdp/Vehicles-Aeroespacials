@@ -71,9 +71,9 @@ for i = 1:n.act
     % idxZ = repmat([0; 0; 1; 0; 0; 0], n.nodes, 1);
     [Uaux, F, rF] = solveStatics(inD, inN, FT, KAAX, n);
 
-    for j = 1:n.nodes   % Només es guarden les components Z dels desplaçaments
-        U(:,i) = Uaux(6*(i-1)+3);
-    end
+    % Guardem components Z
+    U(:,i) = Uaux(3:6:end);
+
 end
 
 % Apartat c, calcular la matriu d'influència
@@ -90,4 +90,45 @@ fprintf("\n---- Coeficients de la matriu d'influencia per l'actuador 13, dels mo
 for k = 4:10
     fprintf('Mode %d : %d µm/N\n',k,C(k,13));
 end
+
+
+%% Problema 3
+
+% a) Calcular el force vector amb el mètode dels minims quadrats
+
+% Definim Zt tenint en compte els valors de la taula i que no optimitzarem
+% els noll index < 4
+
+Zt = zeros(n.noll,1);
+
+Zt(4) = 1300; Zt(5)  = -650; Zt(6)  = 650;
+Zt(7) = -350; Zt(8)  = 350;  Zt(9)  = -180;
+Zt(10) = 180; Zt(11) = -120; Zt(12) = 70;
+Zt(13) = -70; Zt(14) = -45; Zt(15)  = 45;
+
+% Definim només amb noll index > 4  
+
+C_opt = C(4:100, :)*1000; % nm/N rms
+Zt_opt = Zt(4:100);       % nm rms
+
+% Resolució per mètodes quadrats
+f = C_opt \ Zt_opt;
+
+% Calculem els coeficients de zernike després de compensació
+Zc = C_opt*f-Zt_opt;
+
+% i) force vector for actuator from 13 to 17
+fprintf("\n---- Vector de forces pels actuadors del 13 al 17----\n");
+for k = 13:17
+    fprintf('Actuador %d : %d N\n',k,f(k));
+end
+fprintf("\n")
+
+% ii) Calculem l'error 
+sigma_total = sum(sqrt((Zc(:)).^2));
+fprintf('Error total rms : %d N\n \n',sigma_total);
+
+
+
+
 
