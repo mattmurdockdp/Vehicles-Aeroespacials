@@ -199,7 +199,7 @@ phi_i = Vmodal(dof_act13_z,:).';
 
 % Fem el mapa de freqüències, el qual ha de ser de 0 a 1000 hz, però per
 % estudiar-se s'ha de fer fins al doble, és a dir, fins a 2000 hz.
-f = linspace(0,2000,3000);    % Hz
+f = linspace(0,1000,20001);    % Hz
 omega = 2*pi*f;                % rad/s
 H = zeros(size(omega));        % dynamic compliance
 
@@ -226,23 +226,7 @@ fprintf('\nDynamic compliance at actuator %d (z DOF):\n', 13);
 fprintf('Static compliance H(0) = %.6e um/N\n', H0);
 fprintf('Usable bandwidth (A <= +3 dB): f_bw = %.3f Hz\n\n', f_bw);
 
-% --- plots ---
-figure('Name','Dynamic compliance and amplification','NumberTitle','off','Units','normalized','Position',[0.1 0.1 0.6 0.6]);
-subplot(2,1,1);
-semilogx(f, abs(H),'b','LineWidth',1.2);
-xlabel('Frequency (Hz)'); ylabel('|H| (um/N)');
-title(sprintf('Dynamic compliance at actuator %d (z DOF)', 13));
-grid on;
 
-subplot(2,1,2);
-plot(f, A,'k','LineWidth',1.0);
-hold on;
-yline(3,'r--','+3 dB','LineWidth',1);
-xlabel('Frequency (Hz)'); ylabel('Amplification A(f) (dB)');
-xlim([0 2000]);
-ylim([min(A)-1 max(A)+1]);
-grid on;
-legend('A(f)','+3 dB','Location','best');
 
 
 
