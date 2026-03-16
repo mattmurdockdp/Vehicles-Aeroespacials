@@ -113,7 +113,7 @@ Zt(13) = -70; Zt(14) = -45; Zt(15)  = 45;
 C_opt = C(4:100, :)*1000; % nm/N rms
 Zt_opt = Zt(4:100);       % nm rms
 
-% Resolució per mètodes quadrats
+% Resolució per mètode de mínims quadrats
 f = C_opt \ Zt_opt;
 
 % Calculem els coeficients de zernike després de compensació
