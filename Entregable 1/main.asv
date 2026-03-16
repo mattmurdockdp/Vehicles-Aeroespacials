@@ -10,7 +10,7 @@ radi = 75;                  % [mm]
 
 % Struct de mides 'n'
 n.nodes = length(node_coords);  % Nombre total de nodes
-n.dims  = 6;                    % Nombre de DOF per cada node 
+n.dims  = 6;                    % Nombre de DOF per cada node
 n.dof   = n.dims*n.nodes;       % Nombde total de DOF
 
 %% Problema 1: càlcul estructural estàtic considerant només els 3 suports fixes
@@ -19,8 +19,8 @@ n.dof   = n.dims*n.nodes;       % Nombde total de DOF
 dof2Restrict = 1:3;
 
 [inD, ...   %   Dirichlet
- inN] ...   %   Neumann
-= findBCIndicies(case_control_sets.subcase_0_SET_2, n, dof2Restrict);
+    inN] ...   %   Neumann
+    = findBCIndicies(case_control_sets.subcase_0_SET_2, n, dof2Restrict);
 
 % Forces
 g_node = [0;0;-g;0;0;0];
@@ -36,7 +36,7 @@ end
 
 [U, F, rF] = solveStatics(inD, inN, FT, KAAX, n);
 U = reshapeForMETA(U,6);
-fillhdf('h5template.h5', 'gravitySagU.h5', U);
+fillhdf('h5template.h5', 'gravitySagU.h5', U*1e-3); % Passem desplaçaments en [m]
 
 % Comparar reaccions amb el pes
 FGravity = m*g;
@@ -55,36 +55,31 @@ fprintf('\nSuma reaccions (N):       %.6f\n', rF(3)+rF(6)+rF(9));
 % Apartat a, desplaçament dels nodes segons el Polinomi de Zernike
 n.noll = 100;
 Z = zeros(n.nodes, n.noll);
-for j=1:n.noll              
+for j=1:n.noll
     [~, ~, ~, Z(:, j), ~] = zernike_noll(node_coords(:,1)/radi, node_coords(:,2)/radi, j);
 end
 
-    % Apartat b, efecte aïllat de cadascun dels actuadors
-    n.act = length(case_control_sets.subcase_0_SET_1);
-    U = zeros(n.nodes, n.act);
-    FT = zeros(n.dof, 1);
-    
-    for i = 1:n.act
-        actuatorDof = node2DOF(case_control_sets.subcase_0_SET_1(i), n, dof2Restrict);
-            % Nota: nod2Restrict aquí es pot utilitzar el que es vulgui, sempre
-            % i quan sigui robust amb el que s'indexa dins de FT aquí a sota
-        FT(actuatorDof(3)) = 1; % 1 N positiu en l'eix z
-    
-        % idxZ = repmat([0; 0; 1; 0; 0; 0], n.nodes, 1);
-        [Uaux, F, rF] = solveStatics(inD, inN, FT, KAAX, n);
-    
-        % Guardem components Z
-        U(:,i) = Uaux(3:6:end);
-    
-    end
-
-% Apartat c, calcular la matriu d'influència
-
+% Apartat b, efecte aïllat de cadascun dels actuadors
+n.act = length(case_control_sets.subcase_0_SET_1);
+U = zeros(n.nodes, n.act);
+FT = zeros(n.dof, 1);
 C = zeros(n.noll,n.act);
 
-for i=1:n.act
-    W = U(:,i);
-    C(:,i) = (Z\W)*1000;
+for i = 1:n.act
+    actuatorDof = node2DOF(case_control_sets.subcase_0_SET_1(i), n, dof2Restrict);
+    % Nota: nod2Restrict aquí es pot utilitzar el que es vulgui, sempre
+    % i quan sigui robust amb el que s'indexa dins de FT aquí a sota
+    FT(actuatorDof(3)) = 1; % 1 N positiu en l'eix z
+
+    % idxZ = repmat([0; 0; 1; 0; 0; 0], n.nodes, 1);
+    [Uaux, F, rF] = solveStatics(inD, inN, FT, KAAX, n);
+
+    % Guardem components Z
+    U(:,i) = Uaux(3:6:end); % mm/N
+
+    % Apartat c, calcular la matriu d'influència
+    W      = U(:,i);
+    C(:,i) = (Z\W)*1000;    % mm/N
 end
 
 % Resultats per l'actuador 13 pels modes de 4 a 10
@@ -98,49 +93,65 @@ end
 
 % a) Calcular el force vector amb el mètode dels minims quadrats
 
-% Definim Zt tenint en compte els valors de la taula i que no optimitzarem
+% Definim Zt tenint en compte els valors de la taula (en nm RMS) i que no optimitzarem
 % els noll index < 4
 
 Zt = zeros(n.noll,1);
 
-Zt(4) = 1300; Zt(5)  = -650; Zt(6)  = 650;
-Zt(7) = -350; Zt(8)  = 350;  Zt(9)  = -180;
-Zt(10) = 180; Zt(11) = -120; Zt(12) = 70;
-Zt(13) = -70; Zt(14) = -45; Zt(15)  = 45;
+Zt(4)  = 1300; Zt(5)  = -650; Zt(6)  = 650;
+Zt(7)  = -350; Zt(8)  = 350;  Zt(9)  = -180;
+Zt(10) = 180;  Zt(11) = -120; Zt(12) = 70;
+Zt(13) = -70;  Zt(14) = -45;  Zt(15) = 45;
 
-% Definim només amb noll index > 4  
-
-C_opt = C(4:100, :)*1000; % nm/N rms
+% Definim només amb noll index > 4
+C_opt  = C(4:100, :)*1000; % nm/N rms
 Zt_opt = Zt(4:100);       % nm rms
 
-% Resolució per mètodes quadrats
-f = C_opt \ Zt_opt;
+% Resolució per mètode de mínims quadrats
+f = C_opt \ Zt_opt; % [n.act x 1]
 
 % Calculem els coeficients de zernike després de compensació
 Zc = C_opt*f-Zt_opt;
 
 % i) force vector for actuator from 13 to 17
-fprintf("\n---- Vector de forces pels actuadors del 13 al 17----\n");
+fprintf("\n---- Vector de forces pels actuadors del 13 al 17 ----\n");
 for k = 13:17
     fprintf('Actuador %d : %d N\n',k,f(k));
 end
 fprintf("\n")
 
 % ii) The total compensation residual RMS, rejecting the rigid body modes
-sigma_total = sqrt(sum((Zc(:)).^2));
-fprintf('Error total rms : %d N\n \n',sigma_total);
+
+% calculem el desplaçament nodal
+Wc = U*f;  % n.nodes x 1 en mm
+
+% s'ha de tenir en compte que l'efecte dels rigid body (noll<=3) s'ha d'eliminar
+Z_rb     = Z(:,1:3);        % Z en mm
+coeff_rb = Z_rb \ Wc;       % C pels rb en mm/N
+Wc_rigid = Z_rb * coeff_rb; % Desplaçaments dels rb
+Wc_noRB  = Wc - Wc_rigid;   % Eliminem desplaçaments dels rb
+Wc_noRB  = Wc_noRB*1e6;     % Passem a nm
+
+% RMS total
+sigma_total = sqrt(sum(Wc_noRB.^2));
+fprintf('Error total rms (sense modes rigid body)  : %.6f nm\n',sigma_total);
 
 % iii) Compensation residual captured by the 100 modes
+sigma_100 = sqrt(sum(Zc.^2));
+fprintf('Residual capturat pels modes 4..100 de Zernike: %.6f nm\n', sigma_100);
 
 % iv) High frequency (n>100) residual
+sigma_hf = sqrt(sigma_total^2 - sigma_100^2);
+fprintf('Residual de freqüència alta (RMS Noll>100) = %.6f nm\n', sigma_hf);
 
 %% Problem 4: Compute the eigenfrequencies and eigenmodes of the model.
+n.modes = 200;
 
 % a) Unconstrained.
-[V_u, d_u] = eigs(KAAX, MAAX, 30, 'smallestabs');
-freq_u = sqrt(diag(d_u))/(2*pi);
-    % La freqüència surt en números complexos.
-    
+[V_u, d_u] = eigs(KAAX, MAAX, n.modes, 'smallestabs');
+freq_u     = sqrt(diag(d_u))/(2*pi);
+% La freqüència surt en números complexos.
+
 disp('-----------------------------');
 disp('M O D E S   P R O P I S');
 disp(' No restringit');
@@ -153,20 +164,26 @@ end
 
 
 % b) Constrained.
-dof2Restrict = 1:6;         % Restringim tots els graus de llibertat dels tres suports
+% Restringim tots els graus de llibertat dels tres suports
+dof2Restrict = 1:6;
 [inD, ...   %   Dirichlet
- inN] ...   %   Neumann
-= findBCIndicies(case_control_sets.subcase_0_SET_1, n, dof2Restrict);
+    inN] ...   %   Neumann
+    = findBCIndicies(case_control_sets.subcase_0_SET_2, n, dof2Restrict);
 
-    % Seleccionem només els graus de llibertat de Neumann, és a dir, els no
-    % restringits.
-[V_c, d_c] = eigs(KAAX(inN,inN), MAAX(inN,inN), 30, 'smallestabs');
-freq_c = sqrt(diag(d_c))/(2*pi);
+% Seleccionem només els graus de llibertat de Neumann, és a dir, els no
+% restringits.
+[V_cN, d_c] = eigs(KAAX(inN,inN), MAAX(inN,inN), n.modes, 'smallestabs');
+freq_c      = sqrt(diag(d_c))/(2*pi);
 
-    % Exporting the 6th mode for visualization in META
+% Els graus de llibertat de Dirichlet tindran desplaçament nul. Cal
+% considerar-los pel format de META.
+V_c        = zeros(n.dof,n.modes);
+V_c(inN,:) = V_cN;
+
+% Exporting the 6th mode for visualization in META
 V_c6th = reshapeForMETA(V_c(:,6),6);
-fillhdf('h5template.h5', '6thModeConstrained.h5', V_c6th);
-    
+fillhdf('h5template.h5', '6thModeConstrained.h5', V_c6th*1e-3); % Passem el vector propi en [m]
+
 disp(' Suports com a nodes restringits');
 
 for i = 1:8
@@ -179,11 +196,11 @@ end
 zeta = 0.002; % modal damping ratio
 
 % Constrained modes
-Vmodal = V_c; 
-Dmodal = d_c; 
-Mmodal = MAAX(inN,inN); 
+Vmodal = V_cN;          % Aquí no cal considerar els nodes de Dirichlet
+Dmodal = d_c;
+Mmodal = MAAX(inN,inN);
 
-% freqüències modals 
+% freqüències modals
 omega_i = real(sqrt(abs(diag(Dmodal))));   % rad/s
 f_i = omega_i/(2*pi);                      % Hz
 nModes = size(Vmodal,2);
@@ -194,10 +211,10 @@ k_i = zeros(nModes,1);
 b_i = zeros(nModes,1);
 
 for i=1:nModes
-     phi = Vmodal(:,i);
-     m_i(i) = phi' * Mmodal * phi.*1000; % passem a kg
-     k_i(i) = m_i(i) .* (omega_i(i).^2);
-     b_i(i) = 2 .* m_i(i) .* omega_i(i) .* zeta;
+    phi    = Vmodal(:,i);
+    m_i(i) = phi' * Mmodal * phi.*1000; % passem a kg
+    k_i(i) = m_i(i) .* (omega_i(i).^2);
+    b_i(i) = 2 .* m_i(i) .* omega_i(i) .* zeta;
 end
 
 % Es busca el dof per la força vertical de l'actuador 13
@@ -210,15 +227,15 @@ phi_i = Vmodal(dof_act13_z,:).';
 
 % Fem el mapa de freqüències, el qual ha de ser de 0 a 1000 hz, però per
 % estudiar-se s'ha de fer fins al doble, és a dir, fins a 2000 hz.
-f = linspace(0,2000,3000);    % Hz
+f     = linspace(0,2000,3000);    % Hz
 omega = 2*pi*f;                % rad/s
-H = zeros(size(omega));        % dynamic compliance
+H     = zeros(size(omega));        % dynamic compliance
 
 for j = 1:length(omega)
-    w = omega(j);
+    w     = omega(j);
     denom = - (w^2) .* m_i + k_i + 1i .* (b_i .* w);   % (nModes x 1)
-    xi_r = phi_i ./ denom;
-    H(j) = sum(phi_i .* xi_r)*1000; % formula 36 de la teoria, convertim a micras
+    xi_r  = phi_i ./ denom;
+    H(j)  = sum(phi_i .* xi_r)*1000; % formula 36 de la teoria, convertim a micras
 end
 
 % static compliance
@@ -230,7 +247,7 @@ A = 20*log10( abs(H) ./ abs(H0) );
 % Es calcula el usable bandwidth com el bandwidth pel cual A <= 3 dB
 idx_ok   = find(A <= 3);
 last_idx = max(idx_ok); % volem la freq maxima
-f_bw = f(last_idx);
+f_bw     = f(last_idx);
 
 % --- print results ---
 fprintf('\nDynamic compliance at actuator %d (z DOF):\n', 13);
