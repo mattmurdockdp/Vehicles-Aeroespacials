@@ -1,4 +1,4 @@
-function [inD, inN] = findBCIndicies(subset, n, nod2Restrict)
+function [inD, inN] = findBCIndicies(subset, n, dof2Restrict)
     % Descripció:
     %   Funció que genera els vectors amb els índexs de cada tipus de condició
     %   de contorn.
@@ -19,7 +19,7 @@ function [inD, inN] = findBCIndicies(subset, n, nod2Restrict)
     % Última modificació:
     %   05.03.2026
 
-    inD = node2DOF(subset,n,nod2Restrict);
+    inD = node2DOF(subset,n,dof2Restrict);
     inT = 1:n.dof;
     inN = setdiff(inT, inD);
 

@@ -16,11 +16,11 @@ n.dof   = n.dims*n.nodes;       % Nombde total de DOF
 %% Problema 1: càlcul estructural estàtic considerant només els 3 suports fixes
 
 % Indexadors dels nodes de les diferents condicions de contorn
-nod2Restrict = 1:3;
+dof2Restrict = 1:3;
 
 [inD, ...   %   Dirichlet
  inN] ...   %   Neumann
-= findBCIndicies(case_control_sets.subcase_0_SET_2, n, nod2Restrict);
+= findBCIndicies(case_control_sets.subcase_0_SET_2, n, dof2Restrict);
 
 % Forces
 g_node = [0;0;-g;0;0;0];
@@ -35,6 +35,8 @@ for i = 1:n.nodes
 end
 
 [U, F, rF] = solveStatics(inD, inN, FT, KAAX, n);
+U = reshapeForMETA(U,6);
+fillhdf('h5template.h5', 'gravitySagU.h5', U*1e-3); % Passem desplaçaments en [m]
 
 % Comparar reaccions amb el pes
 FGravity = m*g;
@@ -63,7 +65,7 @@ end
     FT = zeros(n.dof, 1);
     
     for i = 1:n.act
-        actuatorDof = node2DOF(case_control_sets.subcase_0_SET_1(i), n, nod2Restrict);
+        actuatorDof = node2DOF(case_control_sets.subcase_0_SET_1(i), n, dof2Restrict);
             % Nota: nod2Restrict aquí es pot utilitzar el que es vulgui, sempre
             % i quan sigui robust amb el que s'indexa dins de FT aquí a sota
         FT(actuatorDof(3)) = 1; % 1 N positiu en l'eix z
@@ -133,9 +135,11 @@ fprintf('Error total rms : %d N\n \n',sigma_total);
 % iv) High frequency (n>100) residual
 
 %% Problem 4: Compute the eigenfrequencies and eigenmodes of the model.
+n.modes = 30;
+
 
 % a) Unconstrained.
-[V_u, d_u] = eigs(KAAX, MAAX, 30, 'smallestabs');
+[V_u, d_u] = eigs(KAAX, MAAX, n.modes, 'smallestabs');
 freq_u = sqrt(diag(d_u))/(2*pi);
     % La freqüència surt en números complexos.
     
@@ -151,10 +155,25 @@ end
 
 
 % b) Constrained.
+    % Restringim tots els graus de llibertat dels tres suports
+dof2Restrict = 1:6;         
+[inD, ...   %   Dirichlet
+ inN] ...   %   Neumann
+= findBCIndicies(case_control_sets.subcase_0_SET_2, n, dof2Restrict);
+
     % Seleccionem només els graus de llibertat de Neumann, és a dir, els no
     % restringits.
-[V_c, d_c] = eigs(KAAX(inN,inN), MAAX(inN,inN), 30, 'smallestabs');
+[V_cN, d_c] = eigs(KAAX(inN,inN), MAAX(inN,inN), n.modes, 'smallestabs');
 freq_c = sqrt(diag(d_c))/(2*pi);
+
+    % Els graus de llibertat de Dirichlet tindran desplaçament nul. Cal
+    % considerar-los pel format de META.
+V_c = zeros(n.dof,n.modes);
+V_c(inN,:) = V_cN;
+
+    % Exporting the 6th mode for visualization in META
+V_c6th = reshapeForMETA(V_c(:,6),6);
+fillhdf('h5template.h5', '6thModeConstrained.h5', V_c6th*1e-3); % Passem el vector propi en [m]
     
 disp(' Suports com a nodes restringits');
 
@@ -168,7 +187,7 @@ end
 zeta = 0.002; % modal damping ratio
 
 % Constrained modes
-Vmodal = V_c; 
+Vmodal = V_cN;          % Aquí no cal considerar els nodes de Dirichlet
 Dmodal = d_c; 
 Mmodal = MAAX(inN,inN); 
 
@@ -191,7 +210,7 @@ end
 
 % Es busca el dof per la força vertical de l'actuador 13
 node_act13  = case_control_sets.subcase_0_SET_1(13);
-dof_act13   = node2DOF(node_act13,n,nod2Restrict);
+dof_act13   = node2DOF(node_act13,n,dof2Restrict);
 dof_act13_z = dof_act13(3);
 
 % Terme amplitud (tenint en compte que la força és 1 N)
