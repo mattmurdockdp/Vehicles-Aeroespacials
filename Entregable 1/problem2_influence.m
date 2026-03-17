@@ -25,6 +25,7 @@ for i = 1:n.act
     FT(dof(3)) = 1;
 
     [Uaux,~,~] = solveStatics(inD,inN,FT,KAAX,n);
+    % Mirror displacements
     U(:,i) = Uaux(3:6:end);
 
     C(:,i) = (Z \ U(:,i)) * 1000; % um/N
