@@ -79,7 +79,7 @@ for i = 1:n.act
 
     % Apartat c, calcular la matriu d'influència
     W      = U(:,i);
-    C(:,i) = (Z\W)*1000;    % mm/N
+    C(:,i) = (Z\W)*1000;    % um/N
 end
 
 % Resultats per l'actuador 13 pels modes de 4 a 10
@@ -104,8 +104,8 @@ Zt(10) = 180;  Zt(11) = -120; Zt(12) = 70;
 Zt(13) = -70;  Zt(14) = -45;  Zt(15) = 45;
 
 % Definim només amb noll index > 4
-C_opt  = C(4:100, :)*1000; % nm/N rms
-Zt_opt = Zt(4:100);       % nm rms
+C_opt  = C(4:100, :).*1000; % nm/N rms
+Zt_opt = Zt(4:100);        % nm rms
 
 % Resolució per mètode de mínims quadrats
 f = C_opt \ Zt_opt; % [n.act x 1]
