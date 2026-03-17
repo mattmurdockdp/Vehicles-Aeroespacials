@@ -13,14 +13,15 @@ n.nodes = length(node_coords);  % Nombre total de nodes
 n.dims  = 6;                    % Nombre de DOF per cada node
 n.dof   = n.dims*n.nodes;       % Nombde total de DOF
 
-%% Problema 1: càlcul estructural estàtic considerant només els 3 suports fixes
-
 % Indexadors dels nodes de les diferents condicions de contorn
 dof2Restrict = 1:3;
 
+% DOFs per les BC
 [inD, ...   %   Dirichlet
     inN] ...   %   Neumann
     = findBCIndicies(case_control_sets.subcase_0_SET_2, n, dof2Restrict);
+
+%% Problema 1: càlcul estructural estàtic considerant només els 3 suports fixes
 
 % Forces
 g_node = [0;0;-g;0;0;0];
@@ -34,6 +35,7 @@ for i = 1:n.nodes
     m   = m + MAAX(idx,idx);
 end
 
+% Solve system
 [U, F, rF] = solveStatics(inD, inN, FT, KAAX, n);
 U = reshapeForMETA(U,6);
 fillhdf('h5template.h5', 'gravitySagU.h5', U*1e-3); % Passem desplaçaments en [m]
@@ -62,10 +64,13 @@ end
 % Apartat b, efecte aïllat de cadascun dels actuadors
 n.act = length(case_control_sets.subcase_0_SET_1);
 U = zeros(n.nodes, n.act);
-FT = zeros(n.dof, 1);
 C = zeros(n.noll,n.act);
 
 for i = 1:n.act
+    % Inicialitzem per cada actuador per no acumular forçes d'actuadors que
+    % no toquen
+    FT = zeros(n.dof, 1);
+    % Trobem els dofs d'aquest actuador
     actuatorDof = node2DOF(case_control_sets.subcase_0_SET_1(i), n, dof2Restrict);
     % Nota: nod2Restrict aquí es pot utilitzar el que es vulgui, sempre
     % i quan sigui robust amb el que s'indexa dins de FT aquí a sota
@@ -146,130 +151,123 @@ sigma_hf = sqrt(sum(Wc_noRB.^2)-sum(Zc.^2));
 fprintf('Residual de freqüència alta (RMS Noll>100) = %.6f nm\n', sigma_hf);
 
 %% Problem 4: Compute the eigenfrequencies and eigenmodes of the model.
-n.modes = 200;
 
+n.modes = 30;
+
+% ---------------------------------------------------------------- %
 % a) Unconstrained.
 [V_u, d_u] = eigs(KAAX, MAAX, n.modes, 'smallestabs');
-freq_u     = sqrt(diag(d_u))/(2*pi);
-% La freqüència surt en números complexos.
+freq_u     = sqrt(diag(d_u))/(2*pi);   % Hz
 
 disp('-----------------------------');
 disp('M O D E S   P R O P I S');
 disp(' No restringit');
 
+% Print first 8 frequencies (Hz)
+fprintf('\nPrimeres freqüències (unconstrained):\n');
+for i = 1:8
+    fprintf('f_%d = %.3f Hz\n', i, freq_u(i));
+end
+
+% Print ratios (como en el main)
+fprintf('\nRatios de freqüència (unconstrained):\n');
 for i = 1:8
     ratio = abs(freq_u(i+1)/freq_u(i));
-    fprintf('Ratio de freq. modes %d i %d: %d Hz \n', i+1, i, ratio);
+    fprintf('Ratio modes %d i %d: %.3f\n', i+1, i, ratio);
 end
-% NOTA: revisar si el ràtio ha de ser gran o petit, de cara al report
 
-
+% ---------------------------------------------------------------- %
 % b) Constrained.
 % Restringim tots els graus de llibertat dels tres suports
 dof2Restrict = 1:6;
-[inD, ...   %   Dirichlet
-    inN] ...   %   Neumann
-    = findBCIndicies(case_control_sets.subcase_0_SET_2, n, dof2Restrict);
+[inD, inN] = findBCIndicies(case_control_sets.subcase_0_SET_2, n, dof2Restrict);
 
-% Seleccionem només els graus de llibertat de Neumann, és a dir, els no
-% restringits.
+% Seleccionem només els graus de llibertat de Neumann
 [V_cN, d_c] = eigs(KAAX(inN,inN), MAAX(inN,inN), n.modes, 'smallestabs');
-freq_c      = sqrt(diag(d_c))/(2*pi);
+freq_c      = sqrt(diag(d_c))/(2*pi);   % Hz
 
-% Els graus de llibertat de Dirichlet tindran desplaçament nul. Cal
-% considerar-los pel format de META.
+% Els graus de llibertat de Dirichlet tindran desplaçament nul
 V_c        = zeros(n.dof,n.modes);
 V_c(inN,:) = V_cN;
 
 % Exporting the 6th mode for visualization in META
 V_c6th = reshapeForMETA(V_c(:,6),6);
-fillhdf('h5template.h5', '6thModeConstrained.h5', V_c6th*1e-3); % Passem el vector propi en [m]
+fillhdf('h5template.h5', '6thModeConstrained.h5', V_c6th*1e-3);
 
+disp(' ');
 disp(' Suports com a nodes restringits');
 
+% Print first 8 constrained frequencies
+fprintf('\nPrimeres freqüències (constrained):\n');
+for i = 1:8
+    fprintf('f_%d = %.3f Hz\n', i, freq_c(i));
+end
+
+% Print ratios (como en el main)
+fprintf('\nRatios de freqüència (constrained):\n');
 for i = 1:8
     ratio = abs(freq_c(i+1)/freq_c(i));
-    fprintf('Ratio de freq. modes %d i %d: %d Hz \n', i+1, i, ratio);
+    fprintf('Ratio modes %d i %d: %.3f\n', i+1, i, ratio);
 end
 
 %% Problem 5: Dynamic compliance of actuator 13 and usable band-width
-
 zeta = 0.002; % modal damping ratio
 
 % Constrained modes
-Vmodal = V_cN;          % Aquí no cal considerar els nodes de Dirichlet
+Vmodal = V_cN;
 Dmodal = d_c;
-Mmodal = MAAX(inN,inN);
+Mnn    = MAAX(inN,inN).*1000; % (t -> kg)
+Knn    = KAAX(inN,inN).*1000; % (N/mm -> N/m)
 
 % freqüències modals
 omega_i = real(sqrt(abs(diag(Dmodal))));   % rad/s
-f_i = omega_i/(2*pi);                      % Hz
-nModes = size(Vmodal,2);
-
-% Es calculen els paràmetres modals
-m_i = zeros(nModes,1);
-k_i = zeros(nModes,1);
-b_i = zeros(nModes,1);
-
-for i=1:nModes
-    phi    = Vmodal(:,i);
-    m_i(i) = phi' * Mmodal * phi.*1000; % passem a kg
-    k_i(i) = m_i(i) .* (omega_i(i).^2);
-    b_i(i) = 2 .* m_i(i) .* omega_i(i) .* zeta;
-end
-
-% Es busca el dof per la força vertical de l'actuador 13
-node_act13  = case_control_sets.subcase_0_SET_1(13);
-dof_act13   = node2DOF(node_act13,n,dof2Restrict);
-dof_act13_z = dof_act13(3);
-
-% Terme amplitud (tenint en compte que la força és 1 N)
-phi_i = Vmodal(dof_act13_z,:).';
+nModes  = size(Vmodal,2);
 
 % Fem el mapa de freqüències, el qual ha de ser de 0 a 1000 hz, però per
 % estudiar-se s'ha de fer fins al doble, és a dir, fins a 2000 hz.
-f     = linspace(0,2000,3000);    % Hz
-omega = 2*pi*f;                % rad/s
-H     = zeros(size(omega));        % dynamic compliance
+f     = linspace(0,2000,100);    % Hz
+w     = 2*pi*f;                  % rad/s
 
-for j = 1:length(omega)
-    w     = omega(j);
-    denom = - (w^2) .* m_i + k_i + 1i .* (b_i .* w);   % (nModes x 1)
-    xi_r  = phi_i ./ denom;
-    H(j)  = sum(phi_i .* xi_r)*1000; % formula 36 de la teoria, convertim a micras
+% Inicialitzem els paràmetres modals i les forces unitàries per l'actuador 13
+phi                        = Vmodal;
+force_vector               = zeros(length(inN), 1);
+node_act13                 = case_control_sets.subcase_0_SET_1(13);  % actuador 13
+dof_act13                  = node2DOF(node_act13, n, dof2Restrict);  
+dofz_global                = dof_act13(3);                           % DOF en z
+idx                        = find(inN == dofz_global);               % posicio del DOF
+force_vector(idx)          = 1;                                      % força unitaria aplicada al DOF (1 N)
+dynamics_displacements     = zeros(length(f), nModes);
+static_displacements       = zeros(length(f), nModes);
+
+for i = 1:nModes
+    % Massa modal (kg)
+    m_i = phi(:,i)' * Mnn * phi(:,i);
+    % Rigidesa modal (N/m)
+    k_i = phi(:,i)' * Knn * phi(:,i);
+    % Damper modal
+    b_i = 2 * zeta * omega_i(i) * m_i;
+    % Força modal
+    f_modal = phi(:,i)' * force_vector;
+    % Dynamic compliance (m)
+    dynamics_displacements(:,i) = f_modal ./(k_i - m_i*w.^2 + 1i*b_i.*w);
+    % Static compliance (m)
+    static_displacements(:,i) = f_modal / k_i; 
 end
 
-% static compliance
-H0 = sum( (phi_i.^2) ./ k_i )*1000;  % amb w = 0
+% Nomes projectem a l'index de l'actuador ja que es un sistema desacoplat,
+% aixi MATLAB no peta
+H  = phi(idx, :) * dynamics_displacements.';   % 1 × nFreq
+H0 = phi(idx, :) * static_displacements.';     % 1 × nFreq
 
 % Guany
 A = 20*log10( abs(H) ./ abs(H0) );
 
-% Es calcula el usable bandwidth com el bandwidth pel cual A <= 3 dB
-idx_ok   = find(A <= 3);
-last_idx = max(idx_ok); % volem la freq maxima
-f_bw     = f(last_idx);
-
-% --- print results ---
-fprintf('\nDynamic compliance at actuator %d (z DOF):\n', 13);
-fprintf('Static compliance H(0) = %.6e um/N\n', H0);
-fprintf('Usable bandwidth (A <= +3 dB): f_bw = %.3f Hz\n\n', f_bw);
-
-% --- plots ---
-figure('Name','Dynamic compliance and amplification','NumberTitle','off','Units','normalized','Position',[0.1 0.1 0.6 0.6]);
-subplot(2,1,1);
-semilogx(f, abs(H),'b','LineWidth',1.2);
-xlabel('Frequency (Hz)'); ylabel('|H| (um/N)');
-title(sprintf('Dynamic compliance at actuator %d (z DOF)', 13));
-grid on;
-
-subplot(2,1,2);
+% --- plot ---
+figure(1);
 plot(f, A,'k','LineWidth',1.0);
 hold on;
 yline(3,'r--','+3 dB','LineWidth',1);
 xlabel('Frequency (Hz)'); ylabel('Amplification A(f) (dB)');
-xlim([0 2000]);
-ylim([min(A)-1 max(A)+1]);
 grid on;
 legend('A(f)','+3 dB','Location','best');
 
