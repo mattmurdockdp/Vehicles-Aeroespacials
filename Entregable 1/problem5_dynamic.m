@@ -62,6 +62,6 @@ hold on;
 yline(3,'r--','+3 dB','LineWidth',1);
 xlabel('Frequency (Hz)'); ylabel('Amplification A(f) (dB)');
 grid on;
-xlim([0,2000])
+xlim([0,1000])
 legend('A(f)','+3 dB','Location','best');
 set(gcf,'Color','w'); saveas(gcf,'dynamic_compliance.png');
