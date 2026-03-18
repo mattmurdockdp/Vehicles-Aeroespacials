@@ -1,1 +1,0 @@
-L'script main es el ProblemA_MainScript, on es criden els diferents moduls corresponents a cada problema (problem1_gravity, etc.). Cada modul es pot cridar de forma individual ja que utilitza arxius .mat on s'han guardat previamente les variables.
